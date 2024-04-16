@@ -8,8 +8,8 @@ SSID = "******"
 PASS = "******"
 sensor = Pin(4, Pin.IN)
 motor = PWM(Pin(3))
-minHour = 0
-maxHour = 12
+minHour = 8
+maxHour = 18
 
 def webpage(minHour, maxHour):
     html = f"""
@@ -77,7 +77,9 @@ def connectWIFI():
 
 def withinHours():
     rtc = RTC()
-    hour = rtc.datetime()[4]
+    # hour = rtc.datetime()[4] # pfft don't need none of that nonsense
+    # my homies prefer THIS:
+    hour = int(ntptime.time() / 3600 % 24 + 3)
     print(minHour, "<=", hour, "<=", maxHour)
     return minHour <= hour <= maxHour
     
@@ -86,7 +88,7 @@ def start():
     ntptime.settime()
     motor.freq(50)
     print("-> 0   Degrees")
-    motor.duty_u16(1144)
+    motor.duty_u16(2300)
     setupServer()
     loop = asyncio.get_event_loop()
     loop.create_task(main())
@@ -100,14 +102,14 @@ def main():
     activations = 0
     while True:
         while withinHours():
-            print("Sensor:", sensor.value())
+            print("Sensor:", "Not covered" if (sensor.value() == 1) else "Covered")
             if sensor.value() == 0:
                 if activations % 2 == 0:
                     print("-> 180 Degrees")
-                    turn(1144, 7600, 5)
+                    turn(1144, 7700, 5)
                 else:
                     print("-> 0   Degrees")
-                    turn(7600, 1144, -5)
+                    turn(7600, 2300, -5)
                 activations += 1
             await asyncio.sleep(15)
         else:
