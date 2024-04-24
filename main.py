@@ -7,9 +7,9 @@ import time
 SSID = "123"
 PASS = "passwordXd"
 sensor = Pin(4, Pin.IN)
-activationLed = Pin(2, Pin.OUT)
-alwaysOnLed = Pin(5, Pin.OUT)
-motor = PWM(Pin(3))
+led1 = Pin(3, Pin.OUT)
+led2 = Pin(2, Pin.OUT)
+motor = PWM(Pin(5))
 minHour = 8
 maxHour = 18
 
@@ -84,7 +84,7 @@ def connectWIFI():
         print('Connecting...')
         # pray to god this doesn't suddendly decide to change since the ip address
         # is hard coded to the Android application
-        net.ifconfig(('192.168.240.169', '255.255.255.0', '192.168.240.63', '1.1.1.1'))
+        # net.ifconfig(('192.168.240.169', '255.255.255.0', '192.168.240.63', '1.1.1.1'))
         net.connect(SSID, PASS)
         while not net.isconnected():
             pass
@@ -110,8 +110,35 @@ def start():
     setupServer()
     loop = asyncio.get_event_loop()
     loop.create_task(main())
+    loop.create_task(displayIpAddressUsingLeds())
     loop.run_forever()
 
+def displayIpAddressUsingLeds():
+    # we were having problems with getting a predictable
+    # local ip from the pi. as such the way we're going to
+    # handle the issue is:
+    # 1. let the network give us whichever address it wants
+    # 2. make the pi print it out by lighting up the leds
+    # i wouldn't call this a hack since this is way worse but
+    # this will have to do.
+    ip = network.WLAN(network.STA_IF).ifconfig()[0].split(".")
+    first = "0"*(3-len(ip[2]))+ip[2]
+    last  = "0"*(3-len(ip[3]))+ip[3]
+    while True:
+        for i in range(3):
+            for k in range(int(first[i])):
+                led1.high()
+                await asyncio.sleep(0.5)
+                led1.low()
+                await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
+        for i in range(3):
+            for k in range(int(last[i])):
+                led2.high()
+                await asyncio.sleep(0.5)
+                led2.low()
+                await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
 def setupServer():
     server = asyncio.start_server(handleServer, "0.0.0.0", 80)
     asyncio.create_task(server)
@@ -122,15 +149,11 @@ def main():
         while withinHours():
             covered = "Not covered" if (sensor.value() == 1) else "Covered"
             print(f"Sensor: {covered}")
-            alwaysOnLed.high()
-            activationLed.high()
             if sensor.value() == 0:
                 handleTurn(activations % 2)
                 activations += 1
-            activationLed.low()
             await asyncio.sleep(10)
         else:
-            alwaysOnLed.low()
             await asyncio.sleep(60)
 
 start()

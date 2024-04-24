@@ -14,7 +14,7 @@ public class MainActivity extends AppCompatActivity {
     String url = "http://192.168.240.169/";
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getSupportActionBar().hide();
+        // getSupportActionBar().hide();
         setContentView(R.layout.activity_main);
         webview = findViewById(R.id.web);
         swipe = findViewById(R.id.swipe);
