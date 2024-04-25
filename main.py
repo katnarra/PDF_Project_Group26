@@ -1,8 +1,7 @@
 from machine import Pin, PWM, RTC
+from time import sleep
 import ntptime
 import network
-import asyncio
-import time
 
 SSID="123"
 PASS="passwordXd"
@@ -11,12 +10,12 @@ led1 = Pin(3, Pin.OUT)
 led2 = Pin(2, Pin.OUT)
 motor = PWM(Pin(5))
 minHour = 8
-maxHour = 18
+maxHour = 22
 
 def turn(start, end, increment):
     for position in range(start, end, increment):
         motor.duty_u16(position)
-        time.sleep(0.001)
+        sleep(0.001)
         
 def handleTurn(pos):
     if (pos == 0):
@@ -50,13 +49,6 @@ def withinHours():
     print(f"{minHour}\t{hour}\t{maxHour}")
     print(f"Proceed: {shouldActivate}")
     return shouldActivate
-    
-def start():
-    connectWIFI()
-    ntptime.settime()
-    motor.freq(50)
-    handleTurn(2300)
-    main()
 
 def main():
     activations = 0
@@ -70,9 +62,16 @@ def main():
                 handleTurn(activations % 2)
                 activations += 1
             led2.low()
-            await asyncio.sleep(10)
+            sleep(5)
         else:
             led1.low()
-            await asyncio.sleep(60)
+            sleep(60)
+
+def start():
+    connectWIFI()
+    ntptime.settime()
+    motor.freq(50)
+    handleTurn(2300)
+    main()
 
 start()
