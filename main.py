@@ -1,77 +1,92 @@
-from machine import Pin, PWM, RTC
+
+from machine import Pin, PWM
 from time import sleep
+import usocket
 import ntptime
 import network
 
-SSID="123"
-PASS="passwordXd"
+SSID = "123"
+PASS = "passwordXd"
 sensor = Pin(4, Pin.IN)
 led1 = Pin(3, Pin.OUT)
 led2 = Pin(2, Pin.OUT)
 motor = PWM(Pin(5))
 minHour = 8
-maxHour = 22
+maxHour = 20
 
 def turn(start, end, increment):
     for position in range(start, end, increment):
         motor.duty_u16(position)
         sleep(0.001)
-        
+
 def handleTurn(pos):
     if (pos == 0):
-        print(f"0\t-> 180\tDegrees")
-        turn(1144, 7700, 5)
+        print("\n0   -> 180 Degrees")
+        turn(2300, 7700, 1)
     elif (pos == 1):
-        print(f"180\t-> 0\tDegrees")
-        turn(7600, 2300, -5)
-    else:
-        print(f"Rotate to {pos}")
-        motor.duty_u16(pos)
-        
+        print("\n180 -> 0   Degrees")
+        turn(7700, 2300, -1)
+
 def connectWIFI():
+    print("\nConnecting...")
     net = network.WLAN(network.STA_IF)
-    if not net.isconnected():
-        net.active(True)
-        print('Connecting...')
-        net.connect(SSID, PASS)
-        while not net.isconnected():
-            pass
-    print('Connection successful')
+    net.active(True)
+    net.connect(SSID, PASS)
+    while not net.isconnected():
+        sleep(1)
+    print()
     print(net.ifconfig())
 
 def withinHours():
-    rtc = RTC()
-    # hour = rtc.datetime()[4] # pfft don't need none of that nonsense
-    # my homies prefer THIS:
     hour = int(ntptime.time() / 3600 % 24 + 3)
-    shouldActivate = minHour < hour < maxHour
-    print(f"min\tcur\tmax")
-    print(f"{minHour}\t{hour}\t{maxHour}")
-    print(f"Proceed: {shouldActivate}")
-    return shouldActivate
+    print("\nStart\t   Current\t   End")
+    print(f"{minHour}:00\t<= {hour}:00\t<= {maxHour}:00")
+    return minHour <= hour <= maxHour
 
-def main():
+def main(connection):
     activations = 0
     while True:
-        while withinHours():
+        if withinHours():
             led1.high()
-            covered = "Not covered" if (sensor.value() == 1) else "Covered"
-            print(f"Sensor: {covered}")
+            led2.low()
             if sensor.value() == 0:
                 led2.high()
+                connection.send(b'sus')
                 handleTurn(activations % 2)
                 activations += 1
-            led2.low()
             sleep(5)
         else:
             led1.low()
-            sleep(60)
+            led2.low()
+            sleep(60*60)
+
+def setTime():
+    while True:
+        try:
+            ntptime.settime()
+            e = None
+        except ETIMEDOUT as e:
+            pass
+        if e:
+            print("\nSyncing the clock failed, retrying...")
+            sleep(1)
+        else:
+            break
+
+def createSocket():
+    socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+    socket.setsockopt(usocket.SOL_SOCKET, usocket.SO_REUSEADDR, 1)
+    socket.bind(('', 8888))
+    socket.listen(5)
+    print("\nWaiting for the client to connect...")
+    connection, address = socket.accept()
+    return connection
 
 def start():
     connectWIFI()
-    ntptime.settime()
+    setTime()
     motor.freq(50)
-    handleTurn(2300)
-    main()
+    connection = createSocket()
+    main(connection)
 
 start()
